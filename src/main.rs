@@ -37,6 +37,8 @@ async fn main() {
         let mutex_socket_map = msm_udp4;
 
         let server_addr = udp4_server.local_addr().unwrap();
+        println!("Listening on {} (IPv4)", server_addr);
+
         let mut buf = [0u8; 65535];
 
         let udp4_recv = udp4_server.clone();
@@ -58,6 +60,8 @@ async fn main() {
             let handle = tokio::spawn(async move {
                 let socket = Arc::new(UdpSocket::bind("0.0.0.0:0").await.unwrap());
                 socket.connect(target_addr).await.unwrap();
+                let socket_addr = socket.local_addr().unwrap();
+                println!("Establishing connection for {} (routed using {})", src, socket_addr);
                 socket.send(&proxy_header::generate_proxy_header(proxy_header::Protocol::UDP, src, server_addr).unwrap()).await.unwrap();
 
                 let lio_send = last_io.clone();
@@ -100,6 +104,8 @@ async fn main() {
                 let _ = handle_kill.await;
                 handle_send.abort();
                 handle_recv.abort();
+
+                println!("Connection for {} closed (was routed using {})", src, socket_addr);
             });
 
             sender.send(buf[..len].to_vec()).await.unwrap();
@@ -112,6 +118,8 @@ async fn main() {
         let mutex_socket_map = msm_udp6;
 
         let server_addr = udp6_server.local_addr().unwrap();
+        println!("Listening on {} (IPv6)", server_addr);
+
         let mut buf = [0u8; 65535];
 
         let udp6_recv = udp6_server.clone();
@@ -133,6 +141,8 @@ async fn main() {
             let handle = tokio::spawn(async move {
                 let socket = Arc::new(UdpSocket::bind(":::0").await.unwrap());
                 socket.connect(target_addr).await.unwrap();
+                let socket_addr = socket.local_addr().unwrap();
+                println!("Establishing connection for {} (routed using {})", src, socket_addr);
                 socket.send(&proxy_header::generate_proxy_header(proxy_header::Protocol::UDP, src, server_addr).unwrap()).await.unwrap();
 
                 let lio_send = last_io.clone();
@@ -175,6 +185,8 @@ async fn main() {
                 let _ = handle_kill.await;
                 handle_send.abort();
                 handle_recv.abort();
+
+                println!("Connection for {} closed (was routed using {})", src, socket_addr);
             });
 
             sender.send(buf[..len].to_vec()).await.unwrap();
