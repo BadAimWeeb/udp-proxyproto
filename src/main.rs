@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     env,
-    net::SocketAddr,
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -23,8 +23,8 @@ async fn main() {
     let listen_port = args[1].parse::<u16>().unwrap();
     let target_addr = args[2].parse::<SocketAddr>().unwrap();
 
-    let udp4_server = Arc::new(UdpSocket::bind(("0.0.0.0", listen_port)).await.unwrap());
     let udp6_server = Arc::new(UdpSocket::bind(("::", listen_port)).await.unwrap());
+    let udp4_server = UdpSocket::bind(("0.0.0.0", listen_port)).await;
 
     let socket_map: HashMap<SocketAddr, (JoinHandle<()>, Sender<Vec<u8>>)> = HashMap::new();
     let mutex_socket_map = Arc::new(Mutex::new(socket_map));
@@ -34,6 +34,11 @@ async fn main() {
 
     let msm_udp4 = mutex_socket_map.clone();
     let udp4_thread = tokio::spawn(async move {
+        if udp4_server.is_err() {
+            return;
+        }
+        let udp4_server = Arc::new(udp4_server.unwrap());
+
         let mutex_socket_map = msm_udp4;
 
         let server_addr = udp4_server.local_addr().unwrap();
@@ -62,7 +67,7 @@ async fn main() {
                 socket.connect(target_addr).await.unwrap();
                 let socket_addr = socket.local_addr().unwrap();
                 println!("Establishing connection for {} (routed using {})", src, socket_addr);
-                socket.send(&proxy_header::generate_proxy_header(proxy_header::Protocol::UDP, src, server_addr).unwrap()).await.unwrap();
+                socket.send(&proxy_header::generate_proxy_header(proxy_header::Protocol::UDP, src, SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), server_addr.port()))).unwrap()).await.unwrap();
 
                 let lio_send = last_io.clone();
                 let socket_send = socket.clone();
@@ -143,7 +148,7 @@ async fn main() {
                 socket.connect(target_addr).await.unwrap();
                 let socket_addr = socket.local_addr().unwrap();
                 println!("Establishing connection for {} (routed using {})", src, socket_addr);
-                socket.send(&proxy_header::generate_proxy_header(proxy_header::Protocol::UDP, src, server_addr).unwrap()).await.unwrap();
+                socket.send(&proxy_header::generate_proxy_header(proxy_header::Protocol::UDP, src, SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::from_bits(1), server_addr.port(), 0, 0))).unwrap()).await.unwrap();
 
                 let lio_send = last_io.clone();
                 let socket_send = socket.clone();

@@ -18,10 +18,14 @@ pub fn generate_proxy_header(protocol: Protocol, source: SocketAddr, dest: Socke
     match source {
         SocketAddr::V4(ip) => {
             header.push(0x10 | protocol as u8);
+            header.push(0x00);
+            header.push(12);
             header.extend(ip.ip().octets().iter());
         }
         SocketAddr::V6(ip) => {
             header.push(0x20 | protocol as u8);
+            header.push(0x00);
+            header.push(36);
             header.extend(ip.ip().octets().iter());
         }
     }
